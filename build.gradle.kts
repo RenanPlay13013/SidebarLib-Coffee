@@ -13,6 +13,7 @@ allprojects {
         mavenCentral()
         mavenLocal()
 
+        maven("https://repo.papermc.io/repository/maven-public/")
         maven("https://repo.codemc.io/repository/nms/")
         maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
         maven("https://hub.spigotmc.org/nexus/repository/public/")
