@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    id("io.papermc.paperweight.userdev") version "1.7.4"
 }
 
 dependencies {
@@ -8,4 +9,6 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.4-R0.1-SNAPSHOT")
     implementation("org.jetbrains:annotations:24.0.1")
     implementation(project(":sidebar-cmn1"))
+
+    paperweight.paperDevBundle("1.21.3-R0.1-SNAPSHOT")
 }

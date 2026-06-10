@@ -1,5 +1,6 @@
 plugins {
     id("com.gradleup.shadow") version "9.4.2" apply false
+    id("io.papermc.paperweight.userdev") version "1.7.4" apply false
 }
 
 group = "com.andrei1058.spigot.sidebar"
@@ -23,7 +24,7 @@ allprojects {
 
 subprojects {
 
-    apply(plugin = "java")
+    apply(plugin = "java-library")
 
     tasks.withType<JavaCompile> {
         options.encoding = "UTF-8"
