@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.andrei1058.spigot.sidebar"
-version = "25.2.2-SNAPSHOT"
+version = findProperty("version") as String? ?: "25.2.2-SNAPSHOT"
 
 allprojects {
     group = rootProject.group
