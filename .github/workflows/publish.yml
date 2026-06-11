@@ -1,4 +1,4 @@
-name: Publish
+name: Build
 
 on:
   push:
@@ -6,10 +6,9 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,20 +24,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build + Publish to GitHub Packages
-        run: ./gradlew publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
-
       - name: Build shadow JAR
         run: ./gradlew shadowJar
 
       - name: Create GitHub Release + Upload JAR
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dist-uber-jar-${{ github.sha }}
-          name: dist-uber-jar-${{ github.sha }}
+          tag_name: dist-${{ github.sha }}
+          name: dist-${{ github.sha }}
           files: sidebar-dist/build/libs/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
