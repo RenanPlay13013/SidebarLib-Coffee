@@ -11,6 +11,7 @@ publishing {
         create<MavenPublication>("mavenJava") {
             from(components["shadow"])
             artifactId = "sidebar-dist"
+            version = System.getenv("GITHUB_SHA") ?: "dev"
         }
     }
     repositories {
