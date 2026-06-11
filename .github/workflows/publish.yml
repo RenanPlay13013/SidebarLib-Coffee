@@ -2,7 +2,11 @@ name: Publish
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   publish:
@@ -23,6 +27,5 @@ jobs:
       - name: Build + Publish
         run: ./gradlew publish
         env:
-          mvnUser: ${{ secrets.MVN_USER }}
-          mvnPassword: ${{ secrets.MVN_PASSWORD }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}

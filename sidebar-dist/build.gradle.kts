@@ -4,7 +4,7 @@ plugins {
     id("com.gradleup.shadow")
 }
 
-val githubRepo = System.getenv("GITHUB_REPOSITORY") ?: "andrei1058/SidebarLib"
+val githubRepo = System.getenv("GITHUB_REPOSITORY") ?: "githubRepo"
 
 publishing {
     publications {
@@ -18,8 +18,8 @@ publishing {
             name = "githubPackages"
             url = uri("https://maven.pkg.github.com/$githubRepo")
             credentials {
-                username = System.getenv("MVN_USER") ?: findProperty("mvnUser") as String? ?: ""
-                password = System.getenv("MVN_PASSWORD") ?: findProperty("mvnPassword") as String? ?: ""
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
             }
         }
     }
