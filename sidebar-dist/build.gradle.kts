@@ -1,30 +1,9 @@
 plugins {
     `java-library`
-    `maven-publish`
     id("com.gradleup.shadow")
 }
 
 val githubRepo = System.getenv("GITHUB_REPOSITORY") ?: "githubRepo"
-
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["shadow"])
-            artifactId = "sidebar-dist"
-            version = "1.0.0-${System.getenv("GITHUB_SHA")?.take(7)}"
-        }
-    }
-    repositories {
-        maven {
-            name = "githubPackages"
-            url = uri("https://maven.pkg.github.com/$githubRepo")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
-            }
-        }
-    }
-}
 
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.12.2-R0.1-SNAPSHOT")
