@@ -1,9 +1,6 @@
 package dev.andrei1058.spigot.sidebar.cmn1;
 
 import com.andrei1058.spigot.sidebar.*;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.chat.IChatMutableComponent;
-import net.minecraft.world.scores.ScoreboardTeamBase;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,15 +8,20 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 
 public class PlayerListImplCmn1 {
-    private ScoreboardTeamBase.EnumTeamPush pushingRule;
+
+    private PlayerTab.PushingRule pushingRule;
+    private PlayerTab.NameTagVisibility nameTagVisibility;
+
     private final SidebarLine prefix;
-    private IChatMutableComponent prefixComp = IChatBaseComponent.b(" ");
+    private String prefixText = " ";
+
     private final SidebarLine suffix;
-    private IChatMutableComponent suffixComp = IChatBaseComponent.b(" ");
+    private String suffixText = " ";
+
     private final WrappedSidebar sidebar;
     private final String id;
-    private ScoreboardTeamBase.EnumNameTagVisibility nameTagVisibility = ScoreboardTeamBase.EnumNameTagVisibility.a;
-    private Player papiSubject = null;
+
+    private Player papiSubject;
     private final Collection<PlaceholderProvider> placeholders;
 
     public PlayerListImplCmn1(
@@ -31,64 +33,53 @@ public class PlayerListImplCmn1 {
             PlayerTab.NameTagVisibility nameTagVisibility,
             @Nullable Collection<PlaceholderProvider> placeholders
     ) {
-        this.suffix = suffix;
-        this.prefix = prefix;
         this.sidebar = sidebar;
-        setPushingRule(toNmsPushing(pushingRule));
-        setNameTagVisibility(toNmsTagVisibility(nameTagVisibility));
         this.id = identifier;
+        this.prefix = prefix;
+        this.suffix = suffix;
+        this.pushingRule = pushingRule;
+        this.nameTagVisibility = nameTagVisibility;
         this.placeholders = placeholders;
     }
 
-    public ScoreboardTeamBase.EnumTeamPush toNmsPushing(PlayerTab.@NotNull PushingRule rule) {
-        return switch (rule) {
-            case NEVER -> ScoreboardTeamBase.EnumTeamPush.b;
-            case ALWAYS -> ScoreboardTeamBase.EnumTeamPush.a;
-            case PUSH_OTHER_TEAMS -> ScoreboardTeamBase.EnumTeamPush.c;
-            case PUSH_OWN_TEAM -> ScoreboardTeamBase.EnumTeamPush.d;
-        };
-    }
-
-    public ScoreboardTeamBase.EnumNameTagVisibility toNmsTagVisibility(PlayerTab.@NotNull NameTagVisibility nameTagVisibility) {
-        return switch (nameTagVisibility) {
-            case NEVER -> ScoreboardTeamBase.EnumNameTagVisibility.b;
-            case ALWAYS -> ScoreboardTeamBase.EnumNameTagVisibility.a;
-            case HIDE_FOR_OTHER_TEAMS -> ScoreboardTeamBase.EnumNameTagVisibility.c;
-            case HIDE_FOR_OWN_TEAM -> ScoreboardTeamBase.EnumNameTagVisibility.d;
-        };
-    }
-
-
-    public ScoreboardTeamBase.EnumTeamPush getPushingRule() {
+    public PlayerTab.PushingRule getPushingRule() {
         return pushingRule;
     }
 
-    public void setPushingRule(ScoreboardTeamBase.EnumTeamPush pushingRule) {
+    public void setPushingRule(PlayerTab.PushingRule pushingRule) {
         this.pushingRule = pushingRule;
+    }
+
+    public PlayerTab.NameTagVisibility getNameTagVisibility() {
+        return nameTagVisibility;
+    }
+
+    public void setNameTagVisibility(PlayerTab.NameTagVisibility nameTagVisibility) {
+        this.nameTagVisibility = nameTagVisibility;
     }
 
     public SidebarLine getPrefix() {
         return prefix;
     }
 
-    public IChatMutableComponent getPrefixComp() {
-        return prefixComp;
+    public String getPrefixText() {
+        return prefixText;
     }
 
-    public void setPrefixComp(IChatMutableComponent prefixComp) {
-        this.prefixComp = prefixComp;
+    public void setPrefixText(String prefixText) {
+        this.prefixText = prefixText;
     }
 
     public SidebarLine getSuffix() {
         return suffix;
     }
 
-    public IChatMutableComponent getSuffixComp() {
-        return suffixComp;
+    public String getSuffixText() {
+        return suffixText;
     }
 
-    public void setSuffixComp(IChatMutableComponent suffixComp) {
-        this.suffixComp = suffixComp;
+    public void setSuffixText(String suffixText) {
+        this.suffixText = suffixText;
     }
 
     public WrappedSidebar getSidebar() {
@@ -97,14 +88,6 @@ public class PlayerListImplCmn1 {
 
     public String getId() {
         return id;
-    }
-
-    public ScoreboardTeamBase.EnumNameTagVisibility getNameTagVisibility() {
-        return nameTagVisibility;
-    }
-
-    public void setNameTagVisibility(ScoreboardTeamBase.EnumNameTagVisibility nameTagVisibility) {
-        this.nameTagVisibility = nameTagVisibility;
     }
 
     public Player getPapiSubject() {
@@ -120,15 +103,26 @@ public class PlayerListImplCmn1 {
     }
 
     public boolean refreshContent() {
-        var newPrefix = prefix.getTrimReplacePlaceholders(papiSubject, 256, this.placeholders);
-        var newSuffix = suffix.getTrimReplacePlaceholders(papiSubject, 256, this.placeholders);
+        String newPrefix = prefix.getTrimReplacePlaceholders(
+                papiSubject,
+                256,
+                placeholders
+        );
 
-        if (newPrefix.equals(prefixComp.getString()) && newSuffix.equals(suffixComp.getString())) {
+        String newSuffix = suffix.getTrimReplacePlaceholders(
+                papiSubject,
+                256,
+                placeholders
+        );
+
+        if (newPrefix.equals(prefixText)
+                && newSuffix.equals(suffixText)) {
             return false;
         }
 
-        this.prefixComp = IChatBaseComponent.b(newPrefix);
-        this.suffixComp = IChatBaseComponent.b(newSuffix);
+        prefixText = newPrefix;
+        suffixText = newSuffix;
+
         return true;
     }
 }

@@ -1,18 +1,13 @@
 package com.andrei1058.spigot.sidebar.v1_21_R3;
 
 import com.andrei1058.spigot.sidebar.*;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.protocol.game.PacketPlayOutPlayerListHeaderFooter;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardScore;
-import net.minecraft.server.network.PlayerConnection;
-import net.minecraft.world.scores.criteria.IScoreboardCriteria;
-import org.bukkit.craftbukkit.v1_21_R3.entity.CraftPlayer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Criteria;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
-import java.util.Optional;
 
 @SuppressWarnings("unused")
 public class ProviderImpl extends SidebarProvider {
@@ -24,8 +19,19 @@ public class ProviderImpl extends SidebarProvider {
     }
 
     @Override
-    public SidebarObjective createObjective(@NotNull WrappedSidebar sidebar, String name, boolean health, SidebarLine title, int type) {
-        return ((SidebarImpl)sidebar).createObjective(name, health ? IScoreboardCriteria.f : IScoreboardCriteria.b, title, type);
+    public SidebarObjective createObjective(
+            @NotNull WrappedSidebar sidebar,
+            String name,
+            boolean health,
+            SidebarLine title,
+            int type
+    ) {
+        return ((SidebarImpl) sidebar).createObjective(
+                name,
+                health ? Criteria.HEALTH : Criteria.DUMMY,
+                title,
+                type
+        );
     }
 
     @Override
@@ -34,18 +40,25 @@ public class ProviderImpl extends SidebarProvider {
     }
 
     @Override
-    public void sendScore(@NotNull WrappedSidebar sidebar, String playerName, int score) {
-        if (sidebar.getHealthObjective() == null) return;
-        PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                playerName,
-                sidebar.getHealthObjective().getName(),
-                score,
-                Optional.empty(),
-                Optional.empty()
-        );
+    public void sendScore(
+            @NotNull WrappedSidebar sidebar,
+            String playerName,
+            int score
+    ) {
+        if (sidebar.getHealthObjective() == null) {
+            return;
+        }
+
+        String objectiveName = sidebar.getHealthObjective().getName();
+
         for (Player player : sidebar.getReceivers()) {
-            PlayerConnection playerConnection = ((CraftPlayer) player).getHandle().f;
-            playerConnection.b(packetPlayOutScoreboardScore);
+            org.bukkit.scoreboard.Objective objective = player
+                    .getScoreboard()
+                    .getObjective(objectiveName);
+
+            if (objective != null) {
+                objective.getScore(playerName).setScore(score);
+            }
         }
     }
 
@@ -55,9 +68,20 @@ public class ProviderImpl extends SidebarProvider {
     }
 
     @Override
-    public void sendHeaderFooter(Player player, String header, String footer) {
-        PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter(IChatBaseComponent.b(header), IChatBaseComponent.b(footer));
-        ((CraftPlayer)player).getHandle().f.b(packet);
+    public void sendHeaderFooter(
+            Player player,
+            String header,
+            String footer
+    ) {
+        player.sendPlayerListHeaderAndFooter(
+                Component.text(header),
+                Component.text(footer)
+        );
+    }
+
+    // Em SidebarImpl
+    public ScoreLine createScore(SidebarObjective objective, SidebarLine line, int score, String color) {
+        return ((SidebarImpl.SidebarObjectiveImpl) objective).createScore(line, score, color);
     }
 
     public static SidebarProvider getInstance() {

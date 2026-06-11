@@ -2,26 +2,25 @@ package com.andrei1058.spigot.sidebar.v1_21_R3;
 
 import com.andrei1058.spigot.sidebar.*;
 import dev.andrei1058.spigot.sidebar.cmn1.PlayerListImplCmn1;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.chat.IChatMutableComponent;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam;
-import net.minecraft.world.scores.ScoreboardTeam;
-import org.bukkit.craftbukkit.v1_21_R3.entity.CraftPlayer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.Contract;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Collection;
 
 @SuppressWarnings("unused")
-public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup {
+public class PlayerListImpl implements VersionedTabGroup {
 
-    private static PacketPlayOutScoreboardTeam.a cachedScoreboardActionA;
-    private static PacketPlayOutScoreboardTeam.a cachedScoreboardActionB;
+    private final String identifier;
+
+    private Component prefix;
+    private Component suffix;
+
+    private PlayerTab.PushingRule pushingRule;
+    private PlayerTab.NameTagVisibility visibility;
 
     private final PlayerListImplCmn1 handle;
 
@@ -34,8 +33,7 @@ public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup 
             PlayerTab.NameTagVisibility nameTagVisibility,
             @Nullable Collection<PlaceholderProvider> placeholders
     ) {
-        super(null, identifier);
-        handle = new PlayerListImplCmn1(
+        this.handle = new PlayerListImplCmn1(
                 sidebar,
                 identifier,
                 prefix,
@@ -45,45 +43,52 @@ public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup 
                 placeholders
         );
 
-        if (null == cachedScoreboardActionA) {
-            cachedScoreboardActionA = (PacketPlayOutScoreboardTeam.a) getScoreboardAction("ADD");
-            if (null == cachedScoreboardActionA){
-                cachedScoreboardActionA = (PacketPlayOutScoreboardTeam.a) getScoreboardAction("a");
-            }
-        }
-        if (null == cachedScoreboardActionB) {
-            cachedScoreboardActionB = (PacketPlayOutScoreboardTeam.a) getScoreboardAction("REMOVE");
-            if (null == cachedScoreboardActionB) {
-                cachedScoreboardActionB = (PacketPlayOutScoreboardTeam.a) getScoreboardAction("b");
-            }
-        }
+        this.identifier = identifier;
     }
 
     @Override
     public void sendCreateToPlayer(Player player) {
-        sendPacket(player, PacketPlayOutScoreboardTeam.a(this, true));
+        Scoreboard board = player.getScoreboard();
+
+        if (board.getTeam(getIdentifier()) == null) {
+            board.registerNewTeam(getIdentifier());
+        }
+
+        updateTeam(player);
     }
 
     @Override
     public void sendUserCreateToReceivers(@NotNull Player player) {
-        // send 3: add entities to team
-        PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(
-                this, player.getName(), cachedScoreboardActionA);
-        handle.getSidebar().getReceivers().forEach(
-                r -> sendPacket(r, packetPlayOutScoreboardTeam)
-        );
+        for (Player receiver : handle.getSidebar().getReceivers()) {
+
+            Team team = receiver.getScoreboard().getTeam(getIdentifier());
+
+            if (team == null) {
+                team = receiver.getScoreboard().registerNewTeam(getIdentifier());
+            }
+
+            team.addEntry(player.getName());
+        }
     }
 
     @Override
     public void sendUpdateToReceivers() {
-        PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(this, false);
-        handle.getSidebar().getReceivers().forEach(r -> sendPacket(r, packetPlayOutScoreboardTeam));
+        handle.getSidebar()
+                .getReceivers()
+                .forEach(this::updateTeam);
     }
 
     @Override
     public void sendRemoveToReceivers() {
-        PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(this);
-        handle.getSidebar().getReceivers().forEach(r -> sendPacket(r, packetPlayOutScoreboardTeam));
+        for (Player player : handle.getSidebar().getReceivers()) {
+
+            Team team = player.getScoreboard()
+                    .getTeam(getIdentifier());
+
+            if (team != null) {
+                team.unregister();
+            }
+        }
     }
 
     @Override
@@ -91,25 +96,33 @@ public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup 
         return handle.refreshContent();
     }
 
-    private void sendPacket(Player player, Packet<?> packet) {
-        ((CraftPlayer) player).getHandle().f.b(packet);
-    }
 
     @Override
     public void add(@NotNull Player player) {
-        PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(
-                this, player.getName(), cachedScoreboardActionA
-        );
-        handle.getSidebar().getReceivers().forEach(r -> sendPacket(r, packetPlayOutScoreboardTeam));
+        for (Player receiver : handle.getSidebar().getReceivers()) {
+
+            Team team = receiver.getScoreboard()
+                    .getTeam(getIdentifier());
+
+            if (team == null) {
+                continue;
+            }
+
+            team.addEntry(player.getName());
+        }
     }
 
     @Override
     public void remove(@NotNull Player player) {
-        // send 4: remove entities from team
-        PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(
-                this, player.getName(), cachedScoreboardActionB
-        );
-        handle.getSidebar().getReceivers().forEach(r -> sendPacket(r, packetPlayOutScoreboardTeam));
+        for (Player receiver : handle.getSidebar().getReceivers()) {
+
+            Team team = receiver.getScoreboard()
+                    .getTeam(getIdentifier());
+
+            if (team != null) {
+                team.removeEntry(player.getName());
+            }
+        }
     }
 
     @Override
@@ -124,18 +137,16 @@ public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup 
 
     @Override
     public void setPushingRule(@NotNull PushingRule rule) {
-        this.handle.setPushingRule(this.handle.toNmsPushing(rule));
-        if (null != this.handle.getId()) {
-            sendUpdateToReceivers();
-        }
+        this.handle.setPushingRule(rule);
+        sendUpdateToReceivers();
     }
 
     @Override
-    public void setNameTagVisibility(@NotNull NameTagVisibility nameTagVisibility) {
-        this.handle.setNameTagVisibility(this.handle.toNmsTagVisibility(nameTagVisibility));
-        if (null != this.handle.getId()){
-            sendUpdateToReceivers();
-        }
+    public void setNameTagVisibility(
+            @NotNull NameTagVisibility nameTagVisibility
+    ) {
+        this.handle.setNameTagVisibility(nameTagVisibility);
+        sendUpdateToReceivers();
     }
 
     @Override
@@ -143,35 +154,44 @@ public class PlayerListImpl extends ScoreboardTeam implements VersionedTabGroup 
         return handle.getId();
     }
 
-    private static Object getScoreboardAction(String action) {
-        try {
-            Class<?> cls = Class.forName("net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam$a");
-            for (Object obj : cls.getEnumConstants()) {
-                try {
-                    Method m = cls.getMethod("name");
-                    String name = (String) m.invoke(obj);
-                    if (action.equals(name)) {
-                        return obj;
-                    }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
-                }
-            }
-        } catch (Exception ignored) {
+    private void updateTeam(Player player) {
+        Team team = player.getScoreboard().getTeam(getIdentifier());
+
+        if (team == null) {
+            return;
         }
-        throw new RuntimeException("Something went wrong... please report this to SidebarLib by andrei1058");
+
+        team.prefix(Component.text(handle.getPrefixText()));
+        team.suffix(Component.text(handle.getSuffixText()));
+
+        team.setOption(
+                Team.Option.COLLISION_RULE,
+                convertCollision(handle.getPushingRule())
+        );
+
+        team.setOption(
+                Team.Option.NAME_TAG_VISIBILITY,
+                convertVisibility(handle.getNameTagVisibility())
+        );
     }
 
-    public @NotNull IChatBaseComponent e() {
-        return handle.getPrefixComp();
+    private Team.OptionStatus convertCollision(PushingRule rule) {
+        return switch (rule) {
+            case ALWAYS -> Team.OptionStatus.ALWAYS;
+            case NEVER -> Team.OptionStatus.NEVER;
+            case PUSH_OTHER_TEAMS -> Team.OptionStatus.FOR_OTHER_TEAMS;
+            case PUSH_OWN_TEAM -> Team.OptionStatus.FOR_OWN_TEAM;
+        };
     }
 
-    public @NotNull IChatBaseComponent f() {
-        return handle.getSuffixComp();
-    }
-
-    @Contract(value = "_ -> new", pure = true)
-    @Override
-    public @NotNull IChatMutableComponent d(IChatBaseComponent var0) {
-        return IChatBaseComponent.b(handle.getPrefixComp().toString() + var0.getString() + handle.getSuffixComp().toString());
+    private Team.OptionStatus convertVisibility(
+            NameTagVisibility visibility
+    ) {
+        return switch (visibility) {
+            case ALWAYS -> Team.OptionStatus.ALWAYS;
+            case NEVER -> Team.OptionStatus.NEVER;
+            case HIDE_FOR_OTHER_TEAMS -> Team.OptionStatus.FOR_OTHER_TEAMS;
+            case HIDE_FOR_OWN_TEAM -> Team.OptionStatus.FOR_OWN_TEAM;
+        };
     }
 }

@@ -1,21 +1,19 @@
 package com.andrei1058.spigot.sidebar.v1_20_R1;
 
 import com.andrei1058.spigot.sidebar.*;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.protocol.game.PacketPlayOutPlayerListHeaderFooter;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardScore;
-import net.minecraft.server.ScoreboardServer;
-import net.minecraft.server.network.PlayerConnection;
-import net.minecraft.world.scores.ScoreboardObjective;
-import net.minecraft.world.scores.criteria.IScoreboardCriteria;
+import net.kyori.adventure.text.Component;
+
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
+import net.minecraft.server.ServerScoreboard;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.bukkit.craftbukkit.v1_20_R1.entity.CraftPlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Criteria;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
-import java.util.LinkedList;
-import java.util.concurrent.ConcurrentLinkedQueue;
+
 
 @SuppressWarnings("unused")
 public class ProviderImpl extends SidebarProvider {
@@ -29,7 +27,7 @@ public class ProviderImpl extends SidebarProvider {
 
     @Override
     public SidebarObjective createObjective(@NotNull WrappedSidebar sidebar, String name, boolean health, SidebarLine title, int type) {
-        return ((SidebarImpl)sidebar).createObjective(name, health ? IScoreboardCriteria.f : IScoreboardCriteria.a, title, type);
+        return ((SidebarImpl)sidebar).createObjective(name, health ? Criteria.HEALTH : Criteria.DUMMY, title, type);
     }
 
     @Override
@@ -39,12 +37,12 @@ public class ProviderImpl extends SidebarProvider {
 
     public void sendScore(@NotNull WrappedSidebar sidebar, String playerName, int score) {
         if (sidebar.getHealthObjective() == null) return;
-        PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                ScoreboardServer.Action.a, ((ScoreboardObjective)sidebar.getHealthObjective()).b(), playerName, score
+        ClientboundSetScorePacket packetPlayOutScoreboardScore = new ClientboundSetScorePacket(
+                ServerScoreboard.Method.CHANGE, sidebar.getHealthObjective().getName(), playerName, score
         );
         for (Player player : sidebar.getReceivers()) {
-            PlayerConnection playerConnection = ((CraftPlayer) player).getHandle().c;
-            playerConnection.a(packetPlayOutScoreboardScore);
+            ServerGamePacketListenerImpl playerConnection = ((CraftPlayer) player).getHandle().connection;
+            playerConnection.send(packetPlayOutScoreboardScore);
         }
     }
 
@@ -57,8 +55,7 @@ public class ProviderImpl extends SidebarProvider {
 
     @Override
     public void sendHeaderFooter(Player player, String header, String footer) {
-        PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter(IChatBaseComponent.b(header), IChatBaseComponent.b(footer));
-        ((CraftPlayer)player).getHandle().c.a(packet);
+        player.sendPlayerListHeaderAndFooter(Component.text(header), Component.text(footer));
     }
 
     public static SidebarProvider getInstance() {

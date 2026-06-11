@@ -1,25 +1,15 @@
 package com.andrei1058.spigot.sidebar.v1_20_R1;
 
 import com.andrei1058.spigot.sidebar.*;
-import net.minecraft.EnumChatFormat;
-import net.minecraft.network.chat.IChatBaseComponent;
-import net.minecraft.network.chat.IChatMutableComponent;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardDisplayObjective;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardObjective;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardScore;
-import net.minecraft.network.protocol.game.PacketPlayOutScoreboardTeam;
-import net.minecraft.server.ScoreboardServer;
-import net.minecraft.server.network.PlayerConnection;
-import net.minecraft.world.scores.ScoreboardObjective;
-import net.minecraft.world.scores.ScoreboardScore;
-import net.minecraft.world.scores.ScoreboardTeam;
-import net.minecraft.world.scores.criteria.IScoreboardCriteria;
+
+
 import net.md_5.bungee.api.ChatColor;
-import org.bukkit.craftbukkit.v1_20_R1.entity.CraftPlayer;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.*;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import net.kyori.adventure.text.Component;
 
 import java.util.Collection;
 
@@ -33,18 +23,22 @@ public class SidebarImpl extends WrappedSidebar {
         return new SidebarImpl.NarniaScoreLine(line, score, color);
     }
 
-    public SidebarObjective createObjective(String name, IScoreboardCriteria iScoreboardCriteria, SidebarLine title, int type) {
-        return new NarniaSidebarObjective(name, iScoreboardCriteria, title, type);
+    public SidebarObjective createObjective(String name, Criteria criteria, SidebarLine title, int type) {
+        return new NarniaSidebarObjective(name, criteria, title, type);
     }
 
-    protected class NarniaSidebarObjective extends ScoreboardObjective implements SidebarObjective {
+    protected class NarniaSidebarObjective implements SidebarObjective {
 
-        private SidebarLine displayName;
-        private IChatMutableComponent displayNameComp = IChatBaseComponent.b("");
+        private final String name;
+        private final Criteria criteria;
         private final int type;
 
-        public NarniaSidebarObjective(String name, IScoreboardCriteria criteria, SidebarLine displayName, int type) {
-            super(null, name, criteria, IChatBaseComponent.b(name), IScoreboardCriteria.EnumScoreboardHealthDisplay.a);
+        private SidebarLine displayName;
+        private Component displayNameComp = Component.text("");
+
+        public NarniaSidebarObjective(String name, Criteria criteria, SidebarLine displayName, int type) {
+            this.name = name;
+            this.criteria = criteria;
             this.displayName = displayName;
             this.type = type;
         }
@@ -59,19 +53,10 @@ public class SidebarImpl extends WrappedSidebar {
             return displayName;
         }
 
-        @Override
-        public void sendCreate(Player player) {
-            this.sendCreate(((CraftPlayer) player).getHandle().c);
-        }
-
-        @Override
-        public void sendRemove(Player player) {
-            this.sendRemove(((CraftPlayer) player).getHandle().c);
-        }
 
         @Override
         public String getName() {
-            return this.b();
+            return this.name;
         }
 
         @Override
@@ -82,64 +67,65 @@ public class SidebarImpl extends WrappedSidebar {
                     getPlaceholders()
             );
 
-            if (newTitle.equals(displayNameComp.getString())) {
+            if (newTitle.equals(displayNameComp.toString())) {
                 return false;
             }
-            this.displayNameComp = IChatBaseComponent.b(newTitle);
+            this.displayNameComp = Component.text(newTitle);
             return true;
         }
 
-        @Override
-        public IChatBaseComponent d() {
-            return displayNameComp;
-        }
 
         @Override
-        public void a(IChatBaseComponent var0) {
-        }
+        public void sendCreate(Player player) {
+            Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
 
-        @Override
-        public IChatBaseComponent e() {
-            return IChatBaseComponent.b((this.d().toString()));
+            Objective objective = scoreboard.registerNewObjective(getName(), Criteria.DUMMY, displayNameComp.toString());
 
-        }
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
-        @Override
-        public void a(IScoreboardCriteria.EnumScoreboardHealthDisplay var0) {
-        }
+            player.setScoreboard(scoreboard);
 
-        private void sendCreate(@NotNull PlayerConnection playerConnection) {
-            PacketPlayOutScoreboardObjective packetPlayOutScoreboardObjective = new PacketPlayOutScoreboardObjective(this, 0);
-            playerConnection.a(packetPlayOutScoreboardObjective);
-            PacketPlayOutScoreboardDisplayObjective packetPlayOutScoreboardDisplayObjective = new PacketPlayOutScoreboardDisplayObjective(type, this);
-            playerConnection.a(packetPlayOutScoreboardDisplayObjective);
-            if (b().equalsIgnoreCase("health")) {
-                PacketPlayOutScoreboardDisplayObjective packetPlayOutScoreboardDisplayObjective2 = new PacketPlayOutScoreboardDisplayObjective(0, this);
-                playerConnection.a(packetPlayOutScoreboardDisplayObjective2);
+            if (getName().equalsIgnoreCase("health")) {
+                Objective health = scoreboard.registerNewObjective("health", Criteria.HEALTH, displayNameComp.toString());
+
+                health.setDisplaySlot(DisplaySlot.BELOW_NAME);
             }
         }
 
         // must be called when updating the name
         public void sendUpdate() {
-            PacketPlayOutScoreboardObjective packetPlayOutScoreboardObjective = new PacketPlayOutScoreboardObjective(this, 2);
-            getReceivers().forEach(player -> ((CraftPlayer) player).getHandle().c.a(packetPlayOutScoreboardObjective));
+            String title = displayNameComp.toString();
+
+            getReceivers().forEach(player -> {
+                Scoreboard scoreboard = player.getScoreboard();
+
+                Objective objective = scoreboard.getObjective(getName());
+
+                if (objective != null) {
+                    objective.displayName(Component.text(title));
+                }
+            });
         }
 
-        public void sendRemove(@NotNull PlayerConnection playerConnection) {
-            PacketPlayOutScoreboardObjective packetPlayOutScoreboardObjective = new PacketPlayOutScoreboardObjective(this, 1);
-            playerConnection.a(packetPlayOutScoreboardObjective);
+
+        @Override
+        public void sendRemove(Player player) {
+            Scoreboard scoreboard = player.getScoreboard();
+
+            Objective objective = scoreboard.getObjective(getName());
+
+            if (objective != null) objective.unregister();
         }
     }
 
-    public class NarniaScoreLine extends ScoreboardScore implements ScoreLine, Comparable<ScoreLine> {
+    public class NarniaScoreLine implements ScoreLine, Comparable<ScoreLine> {
 
         private int score;
-        private IChatMutableComponent prefix = IChatBaseComponent.b(""), suffix = IChatBaseComponent.b("");
+        private Component prefix = Component.text(""), suffix = Component.text("");
         private final TeamLine team;
         private SidebarLine text;
 
         public NarniaScoreLine(@NotNull SidebarLine text, int score, @NotNull String color) {
-            super(null, (ScoreboardObjective) getSidebarObjective(), color);
             this.score = score;
             this.text = text;
             this.team = new TeamLine(color);
@@ -162,59 +148,114 @@ public class SidebarImpl extends WrappedSidebar {
 
         @Override
         public void setScoreAmount(int score) {
-            this.b(score);
+            this.score = score;
         }
 
         @Override
         public void sendCreateToAllReceivers() {
-            PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(team, true);
-            getReceivers().forEach(p -> ((CraftPlayer) p).getHandle().c.a(packetPlayOutScoreboardTeam));
-            PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                    ScoreboardServer.Action.a,getSidebarObjective().getName(), this.getColor(), this.getScoreAmount()
-            );
-            getReceivers().forEach(p -> ((CraftPlayer) p).getHandle().c.a(packetPlayOutScoreboardScore));
+            for (Player player : getReceivers()) {
+
+                Scoreboard board = player.getScoreboard();
+
+                Team team = board.getTeam(getColor());
+
+                if (team == null) {
+                    team = board.registerNewTeam(getColor());
+                }
+
+                team.prefix(Component.text(prefix.toString()));
+                team.suffix(Component.text(suffix.toString()));
+
+                String entry = getColor();
+
+                if (!team.hasEntry(entry)) {
+                    team.addEntry(entry);
+                }
+
+                Objective objective = board.getObjective(
+                        getSidebarObjective().getName()
+                );
+
+                if (objective != null) {
+                    objective.getScore(entry)
+                            .setScore(getScoreAmount());
+                }
+            }
         }
 
         @Override
         public void sendCreate(Player player) {
-            PlayerConnection conn = ((CraftPlayer) player).getHandle().c;
-            PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(team, true);
-            conn.a(packetPlayOutScoreboardTeam);
-            PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                    ScoreboardServer.Action.a, getSidebarObjective().getName(), this.getColor(), this.getScoreAmount()
+            Scoreboard board = player.getScoreboard();
+
+            Team team = board.getTeam(getColor());
+
+            if (team == null) {
+                team = board.registerNewTeam(getColor());
+            }
+
+            team.prefix(net.kyori.adventure.text.Component.text(prefix.toString()));
+            team.suffix(net.kyori.adventure.text.Component.text(suffix.toString()));
+
+            String entry = getColor();
+
+            if (!team.hasEntry(entry)) {
+                team.addEntry(entry);
+            }
+
+            Objective objective = board.getObjective(
+                    getSidebarObjective().getName()
             );
-            conn.a(packetPlayOutScoreboardScore);
+
+            if (objective != null) {
+                objective.getScore(entry)
+                        .setScore(getScoreAmount());
+            }
         }
 
         @Override
         public void sendRemove(Player player) {
-            PlayerConnection conn = ((CraftPlayer) player).getHandle().c;
-            PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(team);
-            PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                    ScoreboardServer.Action.b, getSidebarObjective().getName(), this.getColor(), this.getScoreAmount()
+            Scoreboard board = player.getScoreboard();
+
+            String entry = getColor();
+
+            Objective objective = board.getObjective(
+                    getSidebarObjective().getName()
             );
-            conn.a(packetPlayOutScoreboardTeam);
-            conn.a(packetPlayOutScoreboardScore);
+
+            if (objective != null) {
+                board.resetScores(entry);
+            }
+
+            Team team = board.getTeam(entry);
+
+            if (team != null) {
+                team.unregister();
+            }
         }
 
         public void sendRemoveToAllReceivers() {
-            PacketPlayOutScoreboardTeam packetPlayOutScoreboardTeam = PacketPlayOutScoreboardTeam.a(team);
-            getReceivers().forEach(p -> ((CraftPlayer) p).getHandle().c.a(packetPlayOutScoreboardTeam));
-            PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                    ScoreboardServer.Action.b, getSidebarObjective().getName(), this.getColor(), this.getScoreAmount()
-            );
-            getReceivers().forEach(p -> ((CraftPlayer) p).getHandle().c.a(packetPlayOutScoreboardScore));
+            getReceivers().forEach(this::sendRemove);
         }
 
+        @Override
         public void sendUpdate(Player player) {
-            PacketPlayOutScoreboardTeam packetTeamUpdate = PacketPlayOutScoreboardTeam.a(team, false);
-            ((CraftPlayer) player).getHandle().c.a(packetTeamUpdate);
+            Scoreboard board = player.getScoreboard();
+
+            Team team = board.getTeam(getColor());
+
+            if (team == null) {
+                return;
+            }
+
+            team.prefix(net.kyori.adventure.text.Component.text(prefix.toString()));
+            team.suffix(net.kyori.adventure.text.Component.text(suffix.toString()));
         }
 
         @Contract(pure = true)
         public boolean setContent(@NotNull SidebarLine line) {
             var oldPrefix = this.prefix;
             var oldSuffix = this.suffix;
+
             String content = line.getTrimReplacePlaceholders(
                     getReceivers().isEmpty() ? null : getReceivers().getFirst(),
                     null,
@@ -222,65 +263,46 @@ public class SidebarImpl extends WrappedSidebar {
             );
 
             if (content.length() > 256) {
-                this.prefix = IChatBaseComponent.b(content.substring(0, 256));
-                if (this.prefix.getString().charAt(255) == ChatColor.COLOR_CHAR) {
-                    this.prefix = IChatBaseComponent.b(content.substring(0, 255));
+                this.prefix = Component.text(content.substring(0, 256));
+
+                if (content.charAt(255) == ChatColor.COLOR_CHAR) {
+                    this.prefix = Component.text(content.substring(0, 255));
                     setSuffix(content.substring(255));
                 } else {
                     setSuffix(content.substring(256));
                 }
             } else {
-                this.prefix = IChatBaseComponent.b(content);
-                this.suffix = IChatBaseComponent.b("");
+                this.prefix = Component.text(content);
+                this.suffix = Component.empty();
             }
-            return !oldPrefix.equals(this.prefix) || !oldSuffix.equals(this.suffix);
+
+            return !oldPrefix.equals(this.prefix)
+                    || !oldSuffix.equals(this.suffix);
         }
 
         public void setSuffix(@NotNull String secondPart) {
             if (secondPart.isEmpty()) {
-                this.suffix = IChatBaseComponent.b("");
+                this.suffix = Component.text("");
                 return;
             }
-            secondPart = org.bukkit.ChatColor.getLastColors(this.prefix.getString()) + secondPart;
-            this.suffix = IChatBaseComponent.b(secondPart.length() > 256 ? secondPart.substring(0, 256) : secondPart);
+            secondPart = org.bukkit.ChatColor.getLastColors(this.prefix.toString()) + secondPart;
+            this.suffix = Component.text(secondPart.length() > 256 ? secondPart.substring(0, 256) : secondPart);
         }
 
         public void sendUpdateToAllReceivers() {
-            PacketPlayOutScoreboardTeam packetTeamUpdate = PacketPlayOutScoreboardTeam.a(team, false);
-            getReceivers().forEach(r -> ((CraftPlayer) r).getHandle().c.a(packetTeamUpdate));
+            getReceivers().forEach(this::sendUpdate);
         }
 
         public int compareTo(@NotNull ScoreLine o) {
             return Integer.compare(score, o.getScoreAmount());
         }
 
-        @Override
-        public void b(int score) {
-            this.score = score;
-            PacketPlayOutScoreboardScore packetPlayOutScoreboardScore = new PacketPlayOutScoreboardScore(
-                    ScoreboardServer.Action.a, ((ScoreboardObjective) getSidebarObjective()).b(), e(), score
-            );
-            getReceivers().forEach(r -> ((CraftPlayer) r).getHandle().c.a(packetPlayOutScoreboardScore));
-        }
-
-        @Override
-        public int b() {
-            return score;
-        }
-
-        public void c() {
-        }
-
-        @Override
-        public void a(int i) {
-        }
-
-        @Override
-        public void a() {
-        }
-
         public String getColor() {
-            return team.b().charAt(0) == ChatColor.COLOR_CHAR ? team.b() : ChatColor.COLOR_CHAR + team.b();
+            String entry = team.getEntry();
+
+            return entry.charAt(0) == ChatColor.COLOR_CHAR
+                   ? entry
+                   : ChatColor.COLOR_CHAR + entry;
         }
 
         @Override
@@ -288,57 +310,16 @@ public class SidebarImpl extends WrappedSidebar {
             return setContent(getLine());
         }
 
-        private class TeamLine extends ScoreboardTeam {
+        private class TeamLine {
+
+            private final String color;
 
             public TeamLine(String color) {
-                super(null, color);
-                g().add(color);
+                this.color = color;
             }
 
-            @Contract(value = " -> new", pure = true)
-            @Override
-            public @NotNull IChatBaseComponent e() {
-                return prefix;
-            }
-
-            @Override
-            public void b(@Nullable IChatBaseComponent var0) {
-            }
-
-            @Override
-            public void c(@Nullable IChatBaseComponent var0) {
-            }
-
-            @Contract(value = " -> new", pure = true)
-            @Override
-            public @NotNull IChatBaseComponent f() {
-                return suffix;
-            }
-
-            @Override
-            public void a(boolean var0) {
-            }
-
-            @Override
-            public void b(boolean var0) {
-            }
-
-            @Override
-            public void a(EnumNameTagVisibility var0) {
-            }
-
-            @Override
-            public void a(EnumTeamPush var0) {
-            }
-
-            @Override
-            public void a(EnumChatFormat var0) {
-            }
-
-            @Contract(value = "_ -> new", pure = true)
-            @Override
-            public @NotNull IChatMutableComponent d(IChatBaseComponent var0) {
-                return IChatBaseComponent.b(prefix.getString() + var0 + suffix.getString());
+            public String getEntry() {
+                return color;
             }
         }
     }
